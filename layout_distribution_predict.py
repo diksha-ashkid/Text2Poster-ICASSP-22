@@ -30,8 +30,10 @@ distrib_model = LayoutsDistribModel(
     position_deep = position_deep)
 
 ckpt_path = "./checkpoint/27.80619_distribCNN_BigPosition_epoch_76_scale_20.pth"
-distrib_model.load_state_dict(torch.load(ckpt_path).module.state_dict())
-distrib_model = distrib_model.cuda()
+distrib_model.load_state_dict(torch.load(ckpt_path, map_location=torch.device('cpu')).module.state_dict())
+
+
+#distrib_model = distrib_model.cuda()
 
 saliency = cv2.saliency.StaticSaliencyFineGrained_create()
 
@@ -58,7 +60,9 @@ def smooth_region_dectection(img):
 
 def get_distrib_mask(cand_mask):
     # distrib_mask: (STD_HEIGHT, STD_WIDTH)
-    input_mask = torch.tensor(cand_mask).cuda().float()
+    input_mask = torch.tensor(cand_mask).float()
+
+    #input_mask = torch.tensor(cand_mask).cuda().float()
     with torch.no_grad():
         pred_decoder_bbox_map, _ = distrib_model.forward(inputs_candidates_masks = input_mask, 
                                                          outputs_bboxes_masks = None, extract = True, )
@@ -78,7 +82,7 @@ def get_bbox_mask(bbox):
 
 
 if __name__ == "__main__":
-    img_path = "./bk_image_folder/3AanCrYzXN0.png"
+    img_path = "D:/Personal/diksha/AS/Text2Poster-ICASSP-22/bk_image_folder/girl.jpg"
     img = cv2.imread(img_path)
     width, height = img.shape[1], img.shape[0]
     img_size = (width, height)
@@ -103,4 +107,4 @@ if __name__ == "__main__":
     bbox_distrib_map = cv2.resize(bbox_distrib_map, (width, height))
     saliency_map_with_distrib[:, :, 2] = bbox_distrib_map / bbox_distrib_map.max()
     saliency_map_with_distrib = cv2.resize(saliency_map_with_distrib, (width, height))
-    cv2.imwrite("./display/saliency_map_with-layout-distribution.jpg", saliency_map_with_distrib * 255)
+    cv2.imwrite("./display/this_trial.jpg", saliency_map_with_distrib * 255)
