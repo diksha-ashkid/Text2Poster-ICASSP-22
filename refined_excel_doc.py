@@ -1,3 +1,6 @@
+# diagonal coordinates
+#non zero areas removed
+# centrods added in excel
 import torch
 import cv2
 import os
@@ -12,7 +15,7 @@ position_deep = 8
 STD_WIDTH, STD_HEIGHT = 300, 400
 channel_deep = 16
 MIN_VALUE = -999999
-MAX_BBOX_NUM = 3
+MAX_BBOX_NUM = 2
 
 distrib_model = LayoutsDistribModel(
     dim_feedforward=channel_deep,
@@ -30,10 +33,11 @@ def softmax_1d_weight(x, weight=1):
     exp_sum = exp_x.sum()
     return exp_x / exp_sum * x.shape[0]
 
+
 def smooth_region_dectection(img):
     (success, saliency_map) = saliency.computeSaliency(img)
     scaled_saliency_map = cv2.resize(saliency_map, (STD_WIDTH, STD_HEIGHT))
-    smooth_regions, smooth_scores = get_candidates_region(scaled_saliency_map, threshold=0.8)
+    smooth_regions, smooth_scores = get_candidates_region(scaled_saliency_map, threshold=0.9)
     regions = np.array(
         [[[obj[0], obj[1]],
           [obj[2], obj[1]],
@@ -44,6 +48,7 @@ def smooth_region_dectection(img):
     cv2.fillPoly(smooth_region_mask[0], regions, 1)
     return smooth_region_mask, regions, saliency_map
 
+
 def get_distrib_mask(cand_mask):
     input_mask = torch.tensor(cand_mask).float()
 
@@ -53,6 +58,17 @@ def get_distrib_mask(cand_mask):
     decoder_bbox_map = pred_decoder_bbox_map.clone().cpu().numpy()[0][0]
     decoder_bbox_map = cv2.resize(decoder_bbox_map, (STD_WIDTH, STD_HEIGHT))
     return decoder_bbox_map
+
+
+def get_bbox_mask(bbox):
+    mask = np.zeros((1, STD_HEIGHT, STD_WIDTH), dtype=np.uint8)
+    regions = np.array([[[obj[0], obj[1]],
+                         [obj[2], obj[1]],
+                         [obj[2], obj[3]],
+                         [obj[0], obj[3]]] for obj in bbox[0][:min(MAX_BBOX_NUM, data_len)]], dtype=np.int32)
+    cv2.fillPoly(mask[0], regions, 1, 1)
+    return mask
+
 
 if __name__ == "__main__":
     img_path = r"D:\Personal\diksha\AS\Text2Poster-ICASSP-22\bk_image_folder\quote.png"
@@ -67,7 +83,7 @@ if __name__ == "__main__":
     cv2.imwrite("./display/layout_distribution.jpg", bbox_distrib_map * 255)
 
     # Prepare the data for DataFrame
-    data = {'Region': [], 'Coordinates': [], 'Area': []}
+    data = {'Region': [], 'Coordinates': [], 'Area': [], 'Centroid': []}
 
     # Calculate the area and coordinates for each region
     for i, region in enumerate(regions):
@@ -77,10 +93,15 @@ if __name__ == "__main__":
         # Calculate the area of the region
         area = cv2.contourArea(region)
 
+        # Calculate the centroid of the region
+        centroid_x = x + (w / 2)
+        centroid_y = y + (h / 2)
+
         # Append the data to the dictionary
         data['Region'].append(i+1)
         data['Coordinates'].append(f"({x}, {y}, {x+w}, {y+h})")
         data['Area'].append(area)
+        data['Centroid'].append(f"({centroid_x}, {centroid_y})")
 
     # Create the DataFrame
     df = pd.DataFrame(data)
@@ -94,7 +115,7 @@ if __name__ == "__main__":
     smooth_region_mask = cv2.resize(smooth_region_mask[0], (width, height))
     saliency_map_with_smooth[:, :, 2] = smooth_region_mask / smooth_region_mask.max()
     saliency_map_with_smooth = cv2.resize(saliency_map_with_smooth, (width, height))
-    cv2.imwrite("./display/saliency_map_with-smooth.jpg", saliency_map_with_smooth * 255)
+    cv2.imwrite("./display/saliency_map_with-smooth-pw-13.jpg", saliency_map_with_smooth * 255)
 
     # Show (salicy_map, predicted_layout_distribution) in a figure.
     saliency_map_with_distrib = np.zeros((height, width, 3))
@@ -103,23 +124,3 @@ if __name__ == "__main__":
     saliency_map_with_distrib[:, :, 2] = bbox_distrib_map / bbox_distrib_map.max()
     saliency_map_with_distrib = cv2.resize(saliency_map_with_distrib, (width, height))
     cv2.imwrite("./display/ppt_bkg.jpg", saliency_map_with_distrib * 255)
-
-    # Get the top 3 regions based on area
-    sorted_regions = sorted(regions, key=cv2.contourArea, reverse=True)
-    top_regions = sorted_regions[:3]
-
-    # Create a mask for the merged region
-    merged_region_mask = np.zeros((height, width), dtype=np.uint8)
-    cv2.drawContours(merged_region_mask, top_regions, -1, 255, thickness=cv2.FILLED)
-
-    # Overlay the merged region mask on the original image
-    merged_image = img.copy()
-    merged_image[merged_region_mask == 255] = [0, 0, 255]  # Highlight the merged region in red
-
-    # Save the merged image
-    cv2.imwrite("./display/merged_image.jpg", merged_image)
-
-    # Show the saliency map with only the top 3 regions
-    saliency_map_top_regions = saliency_map.copy()
-    saliency_map_top_regions[merged_region_mask == 0] = 0
-    cv2.imwrite("./display/saliency_map_top_regions.jpg", saliency_map_top_regions * 255)
