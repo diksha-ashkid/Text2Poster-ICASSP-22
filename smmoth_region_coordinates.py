@@ -12,7 +12,7 @@ position_deep = 8
 STD_WIDTH, STD_HEIGHT = 300, 400
 channel_deep = 16
 MIN_VALUE = -999999
-MAX_BBOX_NUM = 2
+MAX_BBOX_NUM = 200
 
 
 
