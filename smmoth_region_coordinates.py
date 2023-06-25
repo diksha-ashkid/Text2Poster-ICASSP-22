@@ -4,6 +4,7 @@ import os
 import numpy as np
 from model.distrib_model import LayoutsDistribModel
 from utils.anchor_utils import get_candidates_region, get_text_region
+import pandas as pd
 
 scale_val = 20
 channel_deep = 16
@@ -11,7 +12,9 @@ position_deep = 8
 STD_WIDTH, STD_HEIGHT = 300, 400
 channel_deep = 16
 MIN_VALUE = -999999
-MAX_BBOX_NUM = 32
+MAX_BBOX_NUM = 2
+
+
 
 distrib_model = LayoutsDistribModel(
     dim_feedforward=channel_deep,
@@ -33,7 +36,7 @@ def softmax_1d_weight(x, weight=1):
 def smooth_region_dectection(img):
     (success, saliency_map) = saliency.computeSaliency(img)
     scaled_saliency_map = cv2.resize(saliency_map, (STD_WIDTH, STD_HEIGHT))
-    smooth_regions, smooth_scores = get_candidates_region(scaled_saliency_map, threshold=0.5)
+    smooth_regions, smooth_scores = get_candidates_region(scaled_saliency_map, threshold=2)
     regions = np.array(
         [[[obj[0], obj[1]],
           [obj[2], obj[1]],
@@ -67,23 +70,41 @@ def get_bbox_mask(bbox):
 
 
 if __name__ == "__main__":
-    img_path = r"D:\Personal\diksha\AS\Text2Poster-ICASSP-22\bk_image_folder\img-1.png"
+    img_path = r"D:\Personal\diksha\AS\Text2Poster-ICASSP-22\bk_image_folder\quote.png"
     img = cv2.imread(img_path)
     width, height = img.shape[1], img.shape[0]
     img_size = (width, height)
 
+
+    
     smooth_region_mask, regions, saliency_map = smooth_region_dectection(img)
     bbox_distrib_map = get_distrib_mask(smooth_region_mask)
 
     cv2.imwrite("./display/candidate_regions.jpg", smooth_region_mask[0] * 255)
     cv2.imwrite("./display/layout_distribution.jpg", bbox_distrib_map * 255)
 
-    # Save smooth region coordinates to a text file
-    coordinates_file = open("./display/smooth_region_coordinates.txt", "w")
-    for region in regions:
-        for point in region:
-            coordinates_file.write(f"{point[0]}, {point[1]}\n")
-    coordinates_file.close()
+    
+# Prepare the data for DataFrame
+    data = {'Region': [], 'Coordinates': [], 'Area': []}
+
+# Calculate the area and coordinates for each region
+    for i, region in enumerate(regions):
+        # Calculate the bounding rectangle coordinates
+        x, y, w, h = cv2.boundingRect(region)
+
+        # Calculate the area of the region
+        area = cv2.contourArea(region)
+
+        # Append the data to the dictionary
+        data['Region'].append(i+1)
+        data['Coordinates'].append(f"({x}, {y}, {x+w}, {y+h})")
+        data['Area'].append(area)
+
+    # Create the DataFrame
+    df = pd.DataFrame(data)
+
+    # Export the DataFrame to an Excel file
+    df.to_excel('./display/smooth_region_coordinates.xlsx', index=False)
 
     # Show (salicy_map, smooth_region) in a figure.
     saliency_map_with_smooth = np.zeros((height, width, 3))
@@ -91,7 +112,7 @@ if __name__ == "__main__":
     smooth_region_mask = cv2.resize(smooth_region_mask[0], (width, height))
     saliency_map_with_smooth[:, :, 2] = smooth_region_mask / smooth_region_mask.max()
     saliency_map_with_smooth = cv2.resize(saliency_map_with_smooth, (width, height))
-    cv2.imwrite("./display/saliency_map_with-smooth.jpg", saliency_map_with_smooth * 255)
+    cv2.imwrite("./display/saliency_map_with-smooth-pw-13.jpg", saliency_map_with_smooth * 255)
 
     # Show (salicy_map, predicted_layout_distribution) in a figure.
     saliency_map_with_distrib = np.zeros((height, width, 3))
