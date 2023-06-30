@@ -1,6 +1,3 @@
-# diagonal coordinates
-#non zero areas removed
-# centrods added in excel
 import torch
 import cv2
 import os
@@ -71,7 +68,7 @@ def get_bbox_mask(bbox):
 
 
 if __name__ == "__main__":
-    img_path = r"D:\Personal\diksha\AS\Text2Poster-ICASSP-22\bk_image_folder\quote.png"
+    img_path = r"D:\Personal\diksha\AS\Text2Poster-ICASSP-22\bk_image_folder\ppt_coordinate.png"
     img = cv2.imread(img_path)
     width, height = img.shape[1], img.shape[0]
     img_size = (width, height)
@@ -83,15 +80,18 @@ if __name__ == "__main__":
     cv2.imwrite("./display/layout_distribution.jpg", bbox_distrib_map * 255)
 
     # Prepare the data for DataFrame
-    data = {'Region': [], 'Coordinates': [], 'Area': [], 'Centroid': []}
+    data = {'Region': [], 'Coordinates': [], 'Area': [], 'Aspect Ratio': [], 'Centroid': []}
 
-    # Calculate the area and coordinates for each region
+    # Calculate the area, aspect ratio, and coordinates for each region
     for i, region in enumerate(regions):
         # Calculate the bounding rectangle coordinates
         x, y, w, h = cv2.boundingRect(region)
 
         # Calculate the area of the region
         area = cv2.contourArea(region)
+
+        # Calculate the aspect ratio of the region
+        aspect_ratio = w / h
 
         # Calculate the centroid of the region
         centroid_x = x + (w / 2)
@@ -101,13 +101,14 @@ if __name__ == "__main__":
         data['Region'].append(i+1)
         data['Coordinates'].append(f"({x}, {y}, {x+w}, {y+h})")
         data['Area'].append(area)
+        data['Aspect Ratio'].append(aspect_ratio)
         data['Centroid'].append(f"({centroid_x}, {centroid_y})")
 
     # Create the DataFrame
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(data, columns=['Region', 'Coordinates', 'Area', 'Aspect Ratio', 'Centroid'])
 
-    # Export the DataFrame to an Excel file
-    df.to_excel('./display/smooth_region_coordinates.xlsx', index=False)
+    # Export the DataFrame to a CSV file
+    df.to_csv('./display/smooth_region_coordinates.csv', index=False)
 
     # Show (salicy_map, smooth_region) in a figure.
     saliency_map_with_smooth = np.zeros((height, width, 3))
@@ -115,7 +116,7 @@ if __name__ == "__main__":
     smooth_region_mask = cv2.resize(smooth_region_mask[0], (width, height))
     saliency_map_with_smooth[:, :, 2] = smooth_region_mask / smooth_region_mask.max()
     saliency_map_with_smooth = cv2.resize(saliency_map_with_smooth, (width, height))
-    cv2.imwrite("./display/saliency_map_with-smooth-pw-13.jpg", saliency_map_with_smooth * 255)
+    cv2.imwrite("./display/new13.jpg", saliency_map_with_smooth * 255)
 
     # Show (salicy_map, predicted_layout_distribution) in a figure.
     saliency_map_with_distrib = np.zeros((height, width, 3))
