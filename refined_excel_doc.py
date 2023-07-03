@@ -73,6 +73,10 @@ if __name__ == "__main__":
     width, height = img.shape[1], img.shape[0]
     img_size = (width, height)
 
+    # Conversion factor from pixels to inches
+    dpi = 72  # Assuming a default DPI value of 72
+    px_to_inch = 1 / dpi
+
     smooth_region_mask, regions, saliency_map = smooth_region_dectection(img)
     bbox_distrib_map = get_distrib_mask(smooth_region_mask)
 
@@ -80,15 +84,18 @@ if __name__ == "__main__":
     cv2.imwrite("./display/layout_distribution.jpg", bbox_distrib_map * 255)
 
     # Prepare the data for DataFrame
-    data = {'Region': [], 'Coordinates': [], 'Area': [], 'Aspect Ratio': [], 'Centroid': []}
+    data = {'Region': [], 'Coordinates': [], 'Area (in)': [], 'Aspect Ratio': [], 'Centroid': [],
+            'X Coordinate': [], 'Y Coordinate': [], 'Width (in)': [], 'Height (in)': []}
 
-    # Calculate the area, aspect ratio, and coordinates for each region
+    # Calculate the area, aspect ratio, coordinates, width, and height for each region
     for i, region in enumerate(regions):
         # Calculate the bounding rectangle coordinates
         x, y, w, h = cv2.boundingRect(region)
 
-        # Calculate the area of the region
-        area = cv2.contourArea(region)
+        # Convert width, height, and area to inches
+        w_inch = w * px_to_inch
+        h_inch = h * px_to_inch
+        area_inch = w_inch * h_inch
 
         # Calculate the aspect ratio of the region
         aspect_ratio = w / h
@@ -100,15 +107,20 @@ if __name__ == "__main__":
         # Append the data to the dictionary
         data['Region'].append(i+1)
         data['Coordinates'].append(f"({x}, {y}, {x+w}, {y+h})")
-        data['Area'].append(area)
+        data['Area (in)'].append(area_inch)
         data['Aspect Ratio'].append(aspect_ratio)
         data['Centroid'].append(f"({centroid_x}, {centroid_y})")
+        data['X Coordinate'].append(x)
+        data['Y Coordinate'].append(y)
+        data['Width (in)'].append(w_inch)
+        data['Height (in)'].append(h_inch)
 
     # Create the DataFrame
-    df = pd.DataFrame(data, columns=['Region', 'Coordinates', 'Area', 'Aspect Ratio', 'Centroid'])
+    df = pd.DataFrame(data, columns=['Region', 'Coordinates', 'Area (in)', 'Aspect Ratio', 'Centroid',
+                                     'X Coordinate', 'Y Coordinate', 'Width (in)', 'Height (in)'])
 
     # Export the DataFrame to a CSV file
-    df.to_csv('./display/smooth_region_coordinates.csv', index=False)
+    df.to_csv('./display/smooth_region_coordinates_this.csv', index=False)
 
     # Show (salicy_map, smooth_region) in a figure.
     saliency_map_with_smooth = np.zeros((height, width, 3))
