@@ -67,6 +67,7 @@ def get_bbox_mask(bbox):
     return mask
 
 
+
 if __name__ == "__main__":
     img_path = r"D:\Personal\diksha\AS\Text2Poster-ICASSP-22\bk_image_folder\ppt_coordinate.png"
     img = cv2.imread(img_path)
@@ -106,10 +107,10 @@ if __name__ == "__main__":
 
         # Append the data to the dictionary
         data['Region'].append(i+1)
-        data['Coordinates'].append(f"({x}, {y}, {x+w}, {y+h})")
+        data['Coordinates'].append([(x, y), (x+w, y), (x+w, y+h), (x, y+h)])
         data['Area (in)'].append(area_inch)
         data['Aspect Ratio'].append(aspect_ratio)
-        data['Centroid'].append(f"({centroid_x}, {centroid_y})")
+        data['Centroid'].append((centroid_x, centroid_y))
         data['X Coordinate'].append(x)
         data['Y Coordinate'].append(y)
         data['Width (in)'].append(w_inch)
